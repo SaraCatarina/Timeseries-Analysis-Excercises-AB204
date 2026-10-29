@@ -1,0 +1,118 @@
+setwd("C:/Users/teafr/OneDrive - NTNU/Skrivbordet/AB-204")
+setwd("C:/Users/teafr/OneDrive - NTNU/Skrivbordet/AB-204/Re__More_poster_info_and_tomorrow's_session")
+library(viridisLite)
+ice<- read.csv("sea_ice.csv")
+ice$t<-1:nrow(ice)
+pal<-viridis(3, end=0.9)
+#1.3
+#linear regression
+mod_1<-lm(extent~t, data=ice)
+summary(mod_1)
+
+#quadratic regression
+mod_2<-lm(extent~t + I(t^2),data=ice)
+summary(mod_2)
+
+#cubic regression
+mod_3<-lm(extent~t + I(t^2)+I(t^3), data=ice)
+summary(mod_3)
+
+
+#1.4 time series plot for sea ice extent, with three model lines
+plot(x = ice$t, y = ice$extent, type = "b", cex = 0.3, col = "black",
+     xlab = "months", ylab = "sea ice extent")
+abline((mod_1), col="green", lwd=2)
+lines(x = ice$t , y = predict(mod_2, newdata = ice),col="yellow",lwd = 2)
+lines(x = ice$t , y = predict(mod_3, newdata = ice), col="blue", lwd = 2)
+
+
+#1.5 Analyzing best model with AIC
+AIC(mod_1) #2304.3
+AIC(mod_2) #2305.955
+AIC(mod_3) #2307.933
+
+
+#1.6 how much does sea ice retreat per year
+summary(mod_1)
+-0.004797*12 #per year, the decrease is 0.057564
+
+
+#1.7 predicting the sea ice for t=453 september 2027 and t=501 september 2031
+ice$month <- relevel(as.factor(ice$month), ref = "12") # December as reference
+mod_ice_month <- lm(formula = extent ~ t + month, data = ice)
+summary(mod_ice_month)
+
+future <- data.frame(t = c(453, 501)) # the months WE WANT TO INVESTIGATE
+predict(mod_ice_month, data.frame(t=453,month="9"))
+predict(mod_ice_month, data.frame(t=501,month="9"))# forecasts
+#t=453 (September 2027) = ice extent 9.908386
+#t=501 (september 2031) = ice extent 9.678120
+
+
+#2.1 BIKES DATA
+setwd("C:/Users/teafr/OneDrive - NTNU/Skrivbordet/AB-204")
+bikes<-read.csv("bike_sharing.csv")
+
+#make quadratic formula for bikes data:
+bikes$t <- 1:nrow(bikes)
+mod_5 <- lm(formula = count ~ t + I(t^2), data = bikes)
+summary(mod_5)
+
+
+#2.2 make acf() and residuals() functions for mod_5
+res<-residuals(mod_5)
+acf(res, lag.max = 365, ci.col = "black",
+    main = "", xlab = "lag", ylab = "ACF")
+    #plot shows= The residuals are not independent:because close residuals have similar value
+                #this means that there are seasonal effects
+
+
+#2.3 add seasonal component
+mod_6 <- lm(formula = count ~ t + I(t^2) + sin(2 * pi * day_of_year / 365)
+                 + cos(2 * pi * day_of_year / 365), data = bikes)
+summary(mod_6)
+
+
+#2.4 time series plot for bikes count + fitted values from mod_6
+bikes$date <- as.Date(bikes$date, format = "%Y-%m-%d")
+plot(x = bikes$date, y = bikes$count, type = "b", cex = 0.3, col = "grey",
+    xlab = "year", ylab = "number of bikes")
+lines(x = bikes$date, y = predict(mod_6, newdata = bikes), lwd = 2)
+
+
+#2.5 plot ACF and resiguals for mod_6
+res_1<-residuals(mod_6)
+acf(res_1, lag.max = 365, ci.col = "green",
+    main = "", xlab = "lag", ylab = "ACF")
+    #Looks better, the residuals are more evenly distributed, not as big cyclical effect anymore
+
+
+#2.6 COMPETITION=== find the best fitting ACF by adding more covariates
+
+mod_7<-lm(formula = count ~ t + I(t^2) + sin(2 * pi * precipitation / 365) #model incorporating percipitation
+          + cos(2 * pi * precipitation / 365), data = bikes)
+    #new model incorporation mod_7
+bikes$date <- as.Date(bikes$date, format = "%Y-%m-%d")
+plot(x = bikes$date, y = bikes$count, type = "b", cex = 0.3, col = "grey",
+     xlab = "year", ylab = "number of bikes")
+lines(x = bikes$date, y = predict(mod_7, newdata = bikes), lwd = 2)
+ 
+    #checking residuals
+res_2<-residuals(mod_7)
+acf(res_2, lag.max = 365, ci.col = "green",
+    main = "", xlab = "lag", ylab = "ACF")      #BAAAAAAAD!
+
+acf(residuals(mod_7), plot = FALSE)$acf[2]    #acf for percipitation = 0.8599513, bad bad bad bad bad
+
+
+#NEW COMBO ADDING ALL COVARIANTS POSSIBLE
+bikes$count_lag1 <- c(NA, bikes$count[-nrow(bikes)]) # number of bikes on the previous daY
+mod_all <- lm(formula = count ~ t + I(t^2) + sin(2 * pi * day_of_year / 365)
+              + cos(2 * pi * day_of_year / 365) + as.factor(day_of_week)
+              + max_temperature + precipitation+min_temperature + 
+                snowfall+bikes$count_lag1, data = bikes)
+res_3<-residuals(mod_all)
+acf(res_3, lag.max = 365, ci.col = "green",
+    main = "", xlab = "lag", ylab = "ACF")
+acf(residuals(mod_all), plot = FALSE)$acf[2]
+#VERY GOOD ACF = 0,0732 YAYAYAYAYYAYA
