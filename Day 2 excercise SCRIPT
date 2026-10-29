@@ -1,0 +1,111 @@
+#EXCERCISE 2
+
+
+setwd("C:/Users/teafr/OneDrive - NTNU/Skrivbordet/AB-204")
+bikes<-read.csv("bike_sharing.csv")
+getwd()
+
+library(viridisLite)
+pal <- viridis(7, end = 0.9) # 7 colours, e.g., one per year
+pal
+
+#Create new variables (windspeed in km/h and temperature in C)
+bikes$windspeed_KmH<-(bikes$windspeed*1.609)
+bikes$min_temperature_celcius<-((bikes$min_temperature-32)*(5/9))
+#convert date variables to a date
+bikes$date<-as.Date(bikes$date)
+
+
+#Create a simple regression for bikes ~ temperature called mod1
+mod1<-lm(formula=bikes$count~bikes$min_temperature_celcius, data=bikes)
+summary(mod1)
+coef(mod1)
+coef(mod1)[1] #Lists the coefficients found in mod1 (regression 1)
+coef(mod1)[2] #can be used to call coefficients
+
+# according to summary (mod1) βˆ0 (intercept) = 51409 and βˆ1 (slope)=2665. 
+# The effect of temperature is statistically significant p<0.05. However R^2 = 0,28.
+# 28% of variance in bike count is explained by temperature.
+
+#scatterplot
+plot(x =bikes$min_temperature_celcius, y =bikes$count, pch = 20,
+     col = adjustcolor("pink", alpha.f = 0.7),
+     xlab = "Temperature Celsius", ylab = "bike count")
+abline(a = coef(mod1)[1], b = coef(mod1)[2], lwd = 2, col="red") #a=intecept, b=slope
+
+
+#2.3 MODEL CHECKING, see if regression fulfills assumptions:
+#DISTRIBUTION OF RESIDUALS          #NOT NORMALLY DISTRIBUTED, SHIFTED TO LEFT
+res <- residuals(mod1)
+hist(res, breaks = 30, probability = TRUE, col = "grey",
+     border = "white", main = "", xlab = "residuals", ylab = "density")
+curve(dnorm(x, mean = mean(res), sd = sd(res)), add = TRUE, lwd = 2) #"ADD=TRUE makes the curve be added to the histogram
+
+#QUANTILE-QUANTILE (QQ-PLOT) - residuals are normal
+#Residuals are not normally distributed (S-SHAPE), do not fulfill assumption
+qqnorm(res, pch = 20, main = "",
+       xlab = "theoretical quantiles", ylab = "sample quantiles")
+qqline(res, lwd = 2)
+
+#Residuals against covariate
+#Not evenly distributed (clustered at top)
+x <- bikes$min_temperature_celcius[!is.na(bikes$min_temperature_celcius)&!is.na(bikes$count)]# without NAs
+plot(x = x, y = res, pch = 20, col = adjustcolor("lightblue", alpha.f = 0.3), xlab = "Temperature C",ylab = "residuals")
+abline(h = 0, lty = 2) # horizontal line at 0
+length(x)
+length(res)
+
+##EXCERCISE 3
+#Create new variable with 0 on dry days and 1 for rainy days
+bikes$rainy<-as.numeric(bikes$precipitation>0)
+head(bikes$rainy)
+
+#Multiple linear regression with count as a function of temp, windspeed and precipitation
+mod2<-lm(formula=bikes$count~bikes$min_temperature_celcius+bikes$rainy+
+           bikes$windspeed_KmH, data=bikes)
+summary(mod2)
+
+      #The summary of the multiple linear regression is B0=70571, b1(temp)=2440, b2(precip)=-19842, b3(wind)=-1076.
+      #all coefficients have a statistically significant effect on bike count, Where increase temp increases number of bikes in comparison to
+      # increased wind and precipitation have a negative effect on bike count.
+      # Bikes = 70571 + 2440x - 19842y - 1076z
+
+#Multiple linear model with count ~ temp, wind
+mod_3 <- lm(formula = bikes$count ~ bikes$min_temperature_celcius + bikes$windspeed_KmH, data = bikes)
+summary(mod_3)
+
+#3D Model of the regression
+
+library(simply3d)
+d <- subset(bikes, !is.na(windspeed_KmH) & !is.na(count) & !is.na(min_temperature_celcius) & !is.na(rainy)) # complete days only
+
+p <- simply_scatter(x = d$min_temperature_celcius, y = d$windspeed_KmH, z = d$count, size = 2, xlab = "temperature", ylab = "wind speed",
+                    zlab = "number of bikes", color=viridis(2,end=0.9)[d$rainy + 1])
+p
+
+
+surface(p, expr=predict(mod_3, data.frame(min_temperature_celcius=x,
+                                          windspeed_KmH=y,rainy=0)),
+        x=d$min_temperature_celcius, y=d$windspeed_KmH,showscale = FALSE)
+
+#RESIDUAL CHECKS
+residuals(mod_3)
+hist(residuals(mod_3))
+
+#Which model combo to use check with AIC:
+d
+mod_1<-lm(count~min_temperature_celcius,data=d)
+mod_2<-lm(count~min_temperature_celcius+windspeed_KmH,data=d)
+mod_3<-lm(count~min_temperature_celcius+rainy,data=d)
+mod_4<-lm(count~min_temperature_celcius+rainy+windspeed_KmH,data=d)
+AIC(mod_1,mod_2,mod_3,mod_4)
+ #output of AIC:
+#mod_1  3 88678.25
+#mod_2  4 88637.61
+#mod_3  4 88447.66
+#mod_4  5 88419.53
+###choose the model with lowest AIC (model 4), in this case adding complexity might be useful
+
+#TESTING MODEL 4 TO FORECAST BIKE COUNT
+predict(mod_4, data.frame(min_temperature_celcius=20,windspeed_KmH=10,rainy=0))
+#gives output bikes =108607.3 
