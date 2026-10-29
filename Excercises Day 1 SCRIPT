@@ -1,0 +1,90 @@
+#EXCERCISE 1
+
+setwd("C:/Users/teafr/OneDrive - NTNU/Skrivbordet/AB-204")
+bikes<-read.csv("bike_sharing.csv")
+getwd()
+
+#Overview of data, 12 variables and 3926 observations
+head(bikes)
+summary(bikes)
+dim(bikes)
+str(bikes)
+
+#Create new variables (windspeed in km/h and temperature in C)
+bikes$windspeed_KmH<-(bikes$windspeed*1.609)
+bikes$min_temperature_celcius<-((bikes$min_temperature-32)*(5/9))
+#convert date variables to a date
+bikes$date<-as.Date(bikes$date)
+
+#create a new subset data of the data from only 2025
+bikes_2025<-subset(bikes,year==2025)
+
+#EXCERCISE 2,
+plot(bikes_2025[,c(1,7:12)]) #all coloums but only 1, 7, 8, 9, 10, 11, 12 variables
+
+plot(x = bikes_2025$date, y = bikes_2025$count, pch = 20,
+     col = adjustcolor("pink", alpha.f = 0.7),
+     xlab = "Day", ylab = "number of bikes")
+
+plot(x = bikes_2025$min_temperature_celcius, y = bikes_2025$count, pch = 20,
+     col = adjustcolor("blue", alpha.f = 0.3),
+     xlab = "temperature", ylab = "number of bikes")
+
+plot(x = bikes_2025$windspeed_KmH, y = bikes_2025$count, pch = 20,
+     col = adjustcolor("green", alpha.f = 0.3),
+     xlab = "Windspeed (Km/H)", ylab = "number of bikes")
+
+plot(x = bikes_2025$day_of_week, y = bikes_2025$count, pch = 20,
+     col = adjustcolor("red", alpha.f = 0.3),
+     xlab = "Day of the week", ylab = "number of bikes")
+
+plot(x = bikes_2025$precipitation, y = bikes_2025$count, pch = 20,
+     col = adjustcolor("maroon", alpha.f = 0.3),
+     xlab = "percipitation", ylab = "number of bikes")
+
+#Trying three dimensional scatterplot
+install.packages("viridisLite") 
+library(viridisLite) # viridis colours (install.packages("viridisLite") once)
+pal <- viridis(7, end = 0.9) # 7 colours, e.g., one per year
+
+install.packages("remotes")
+remotes::install_github("janoleko/simply3d")
+library(simply3d)
+d <- subset(bikes, !is.na(count))# days with a count
+simply_scatter(x = d$windspeed_KmH, y = d$min_temperature_celcius, z = d$count, size=2,
+               xlab="windspeed", ylab="temperature",zlab="number of bikes", 
+               color = viridis(11, end = 0.9)[d$year - 2015], showlegend = TRUE)
+
+simply_scatter(x = d$windspeed_KmH, y = d$min_temperature_celcius, z = d$count, size=2,
+               xlab="windspeed", ylab="temperature",zlab="number of bikes", 
+               color = "pink")
+
+?simply_scatter
+
+#Excercise 3, Boxplots
+#BOXPLOT
+boxplot(x = bikes$count, ylab = "number of bikes",
+        col = "purple")
+
+#HISTOGRAM
+hist(x = bikes$count, breaks = 40, main = "", col = "lightblue", border = "black",
+     xlab = "number of bikes", ylab = "frequency")
+?hist
+
+#KERNEL DENSITY ESTIMATE
+dens <- density(x = bikes$count, na.rm = TRUE)
+plot(dens, lwd = 2, xlab = "number of bikes", ylab = "density", main = "")
+polygon(dens, col = adjustcolor("pink", alpha.f = 0.5), border = NA) 
+
+hist(x = bikes$count, breaks = 40, probability = TRUE, main = "",
+     col = "maroon", border = "white",
+     xlab = "count", ylab = "density")
+lines(dens, lwd = 2)
+
+dens_dry <- density(subset(bikes_2025,precipitation==0)$count)
+dens_rainy <- density(subset(bikes_2025,precipitation>0)$count)
+plot(dens_dry, col="red",lwd=2,main="")
+lines(dens_rainy,col="blue",lwd=2)
+legend("topleft",legend=c("dry","rainy"),col="red",lwd=2)
+
+boxplot(count~year,data=bikes,col="lightblue",ylab="number of bikes", xlab="year")
